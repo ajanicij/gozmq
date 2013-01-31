@@ -31,26 +31,43 @@ import (
 	"errors"
 )
 
-var (
+const (
 	SNDHWM = IntSocketOption(C.ZMQ_SNDHWM)
 	RCVHWM = IntSocketOption(C.ZMQ_SNDHWM)
 
-	// TODO Not documented in the man page...
-	//LAST_ENDPOINT       = UInt64SocketOption(C.ZMQ_LAST_ENDPOINT)
-	FAIL_UNROUTABLE     = BoolSocketOption(C.ZMQ_FAIL_UNROUTABLE)
+	LAST_ENDPOINT       = StringSocketOption(C.ZMQ_LAST_ENDPOINT)
+	ROUTER_MANDATORY    = BoolSocketOption(C.ZMQ_ROUTER_MANDATORY)
 	TCP_KEEPALIVE       = IntSocketOption(C.ZMQ_TCP_KEEPALIVE)
 	TCP_KEEPALIVE_CNT   = IntSocketOption(C.ZMQ_TCP_KEEPALIVE_CNT)
 	TCP_KEEPALIVE_IDLE  = IntSocketOption(C.ZMQ_TCP_KEEPALIVE_IDLE)
 	TCP_KEEPALIVE_INTVL = IntSocketOption(C.ZMQ_TCP_KEEPALIVE_INTVL)
-	// TODO Make this work.
-	//TCP_ACCEPT_FILTER   = IntSocketOption(C.ZMQ_TCP_ACCEPT_FILTER)
+	TCP_ACCEPT_FILTER   = StringSocketOption(C.ZMQ_TCP_ACCEPT_FILTER)
+	
+	MULTICAST_HOPS = IntSocketOption(C.ZMQ_MULTICAST_HOPS)
+	IPV4ONLY = BoolSocketOption(C.ZMQ_IPV4ONLY)
+	DELAY_ATTACH_ON_CONNECT = BoolSocketOption(C.ZMQ_DELAY_ATTACH_ON_CONNECT)
+	XPUB_VERBOSE = BoolSocketOption(C.ZMQ_XPUB_VERBOSE)
 
 	// Message options
 	MORE = MessageOption(C.ZMQ_MORE)
+	MAXMSGSIZE = Int64SocketOption(C.ZMQ_MAXMSGSIZE)
 
 	// Send/recv options
 	DONTWAIT = SendRecvOption(C.ZMQ_DONTWAIT)
+	
+	// Deprecated aliases
+	NOBLOCK = DONTWAIT
+	FAIL_UNROUTABLE = ROUTER_MANDATORY
+	ROUTER_BEHAVIOR = ROUTER_MANDATORY
 )
+
+func createZmqContext() unsafe.Pointer {
+	return C.zmq_ctx_new()
+}
+
+func destroyZmqContext(c unsafe.Pointer) {
+	C.zmq_ctx_destroy(c)
+}
 
 // Send a message to the socket.
 // int zmq_send (void *s, zmq_msg_t *msg, int flags);
@@ -68,7 +85,7 @@ func (s *zmqSocket) Send(data []byte, flags SendRecvOption) error {
 		C.memcpy(unsafe.Pointer(C.zmq_msg_data(&m)), unsafe.Pointer(&data[0]), size) // XXX I hope this works...(seems to)
 	}
 
-	if C.zmq_sendmsg(s.s, &m, C.int(flags)) == -1 {
+	if C.zmq_msg_send(&m, s.s, C.int(flags)) == -1 {
 		// zmq_send did not take ownership, free message
 		C.zmq_msg_close(&m)
 		return errno()
@@ -87,7 +104,7 @@ func (s *zmqSocket) Recv(flags SendRecvOption) (data []byte, err error) {
 	}
 	defer C.zmq_msg_close(&m)
 	// Receive into message
-	if C.zmq_recvmsg(s.s, &m, C.int(flags)) == -1 {
+	if C.zmq_msg_recv(&m, s.s, C.int(flags)) == -1 {
 		err = errno()
 		return
 	}

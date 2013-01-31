@@ -36,6 +36,14 @@ var (
 	NOBLOCK           = SendRecvOption(C.ZMQ_NOBLOCK)
 )
 
+func createZmqContext() unsafe.Pointer {
+	return C.zmq_init(1)
+}
+
+func destroyZmqContext(c unsafe.Pointer) {
+	C.zmq_term(c)
+}
+
 // Send a message to the socket.
 // int zmq_send (void *s, zmq_msg_t *msg, int flags);
 func (s *zmqSocket) Send(data []byte, flags SendRecvOption) error {

@@ -72,7 +72,7 @@ type BoolSocketOption int
 type MessageOption int
 type SendRecvOption int
 
-var (
+const (
 	// NewSocket types
 	PAIR   = SocketType(C.ZMQ_PAIR)
 	PUB    = SocketType(C.ZMQ_PUB)
@@ -126,7 +126,7 @@ var (
 
 type PollEvents C.short
 
-var (
+const (
 	POLLIN  = PollEvents(C.ZMQ_POLLIN)
 	POLLOUT = PollEvents(C.ZMQ_POLLOUT)
 	POLLERR = PollEvents(C.ZMQ_POLLERR)
@@ -134,7 +134,7 @@ var (
 
 type DeviceType int
 
-var (
+const (
 	STREAMER  = DeviceType(C.ZMQ_STREAMER)
 	FORWARDER = DeviceType(C.ZMQ_FORWARDER)
 	QUEUE     = DeviceType(C.ZMQ_QUEUE)
@@ -173,24 +173,26 @@ type zmqContext struct {
 }
 
 // Create a new context.
-// void *zmq_init (int io_threads);
+// 0MQ 2.x: void *zmq_init (int io_threads);
+// 0MQ 3.x: void *zmq_ctx_new(void);
 func NewContext() (Context, error) {
-	// TODO Pass something useful here. Number of cores?
 	// C.NULL is correct but causes a runtime failure on darwin at present
-	if c := C.zmq_init(1); c != nil /*C.NULL*/ {
+	if c := createZmqContext(); c != nil /*C.NULL*/ {
 		return &zmqContext{c}, nil
 	}
 	return nil, errno()
 }
 
-// int zmq_term (void *context);
 func (c *zmqContext) destroy() {
 	// Will this get called without being added by runtime.SetFinalizer()?
 	c.Close()
 }
 
+// Destroy context.
+// 0MQ 2.x: int zmq_term (void *context);
+// 0MQ 3.x: int zmq_ctx_destroy (void *context);
 func (c *zmqContext) Close() {
-	C.zmq_term(c.c)
+	destroyZmqContext(c.c)
 }
 
 // Create a new socket.
